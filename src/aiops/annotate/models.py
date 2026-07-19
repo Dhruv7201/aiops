@@ -32,22 +32,39 @@ class LabelDef(BaseModel):
         return v
 
 
+ShapeType = Literal["rectangle", "polygon", "circle", "line", "point", "linestrip"]
+
+# (min_points, max_points or None) per shape type
+_POINT_RULES: dict[str, tuple[int, int | None]] = {
+    "rectangle": (2, 2),
+    "polygon": (3, None),
+    "circle": (2, 2),
+    "line": (2, 2),
+    "point": (1, 1),
+    "linestrip": (2, None),
+}
+
+
 class Shape(BaseModel):
-    """Single annotation shape, matching LabelMe's shape schema."""
+    """Single annotation shape, matching LabelMe's shape schema.
+
+    The editor only creates rectangles and polygons, but the other LabelMe
+    types are accepted (and rendered read-only) so external docs load.
+    """
 
     label: str
     points: list[list[float]]
-    shape_type: Literal["rectangle", "polygon"] = "rectangle"
+    shape_type: ShapeType = "rectangle"
     group_id: int | None = None
     description: str = ""
     flags: dict[str, Any] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def _check_points(self) -> Shape:
-        if self.shape_type == "rectangle" and len(self.points) != 2:
-            raise ValueError("rectangle must have exactly 2 points")
-        if self.shape_type == "polygon" and len(self.points) < 3:
-            raise ValueError("polygon must have at least 3 points")
+        lo, hi = _POINT_RULES[self.shape_type]
+        if len(self.points) < lo or (hi is not None and len(self.points) > hi):
+            bound = f"exactly {lo}" if lo == hi else f"at least {lo}"
+            raise ValueError(f"{self.shape_type} must have {bound} points")
         for pt in self.points:
             if len(pt) != 2:
                 raise ValueError("each point must be [x, y]")
@@ -61,7 +78,9 @@ class LabelMeDoc(BaseModel):
     flags: dict[str, Any] = Field(default_factory=dict)
     shapes: list[Shape] = Field(default_factory=list)
     imagePath: str = ""
-    imageData: None = None
+    # LabelMe embeds the image as base64 by default; accept it so existing
+    # annotation dirs load, but the store strips it on save to keep files lean.
+    imageData: str | None = None
     imageHeight: int = 0
     imageWidth: int = 0
 
@@ -114,6 +133,18 @@ class CreateUserRequest(BaseModel):
 class CreateProjectRequest(BaseModel):
     name: str
     images_dir: str
+
+    @field_validator("name")
+    @classmethod
+    def _name_ok(cls, v: str) -> str:
+        v = v.strip()
+        if not v or "/" in v or "\\" in v:
+            raise ValueError("invalid project name")
+        return v
+
+
+class RenameProjectRequest(BaseModel):
+    name: str
 
     @field_validator("name")
     @classmethod

@@ -1,4 +1,5 @@
 import type {
+  ExportFormat,
   ExportResult,
   ImageInfo,
   LabelDef,
@@ -36,6 +37,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     }
     throw new Error(detail)
   }
+  if (res.status === 204) return undefined as T
   return res.json()
 }
 
@@ -51,6 +53,13 @@ export const api = {
       body: JSON.stringify({ name, images_dir: imagesDir }),
     }),
   getProject: (name: string) => request<ProjectMeta>(`/api/projects/${enc(name)}`),
+  deleteProject: (name: string) =>
+    request<void>(`/api/projects/${enc(name)}`, { method: 'DELETE' }),
+  renameProject: (name: string, newName: string) =>
+    request<ProjectMeta>(`/api/projects/${enc(name)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name: newName }),
+    }),
   setLabels: (name: string, labels: LabelDef[]) =>
     request<ProjectMeta>(`/api/projects/${enc(name)}/labels`, {
       method: 'PUT',
@@ -83,6 +92,7 @@ export const api = {
   export: (
     name: string,
     outputDir: string,
+    format: ExportFormat,
     ratios: { train: number; val: number; test: number },
     seed: number | null,
   ) =>
@@ -90,7 +100,7 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({
         output_dir: outputDir,
-        format: 'labelme',
+        format,
         train_ratio: ratios.train,
         val_ratio: ratios.val,
         test_ratio: ratios.test,

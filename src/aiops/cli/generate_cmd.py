@@ -213,7 +213,6 @@ def fullstack(
         # Backend
         from aiops.generators.backend import BackendGenerator
         backend_gen = BackendGenerator(backend)
-        backend_dir = root / "backend"
         backend_gen.generate(
             "backend",
             output_dir=root,
@@ -238,26 +237,26 @@ def fullstack(
         # Docker compose for the whole stack
         if docker:
             _gen_fullstack_compose(root, db_type, include_frontend)
-            rprint(f"  [green]+ docker-compose.yml[/green]")
+            rprint("  [green]+ docker-compose.yml[/green]")
 
         # .env at project root
         env_lines = [f"PROJECT_NAME={name}"]
         if db_url:
             env_lines.append(f"DATABASE_URL={db_url}")
         (root / ".env").write_text("\n".join(env_lines) + "\n")
-        rprint(f"  [green]+ .env[/green]")
+        rprint("  [green]+ .env[/green]")
 
     rprint(f"\n[bold green]Project generated at {root}[/bold green]")
-    rprint(f"\n[bold]Next steps:[/bold]")
+    rprint("\n[bold]Next steps:[/bold]")
     rprint(f"  cd {root}")
-    rprint(f"  # Backend:")
-    rprint(f"  cd backend && pip install -r requirements.txt")
+    rprint("  # Backend:")
+    rprint("  cd backend && pip install -r requirements.txt")
     if include_frontend:
-        rprint(f"  # Frontend:")
-        rprint(f"  cd frontend && npm install && npm run dev")
+        rprint("  # Frontend:")
+        rprint("  cd frontend && npm install && npm run dev")
     if docker:
-        rprint(f"  # Or just:")
-        rprint(f"  docker compose up --build")
+        rprint("  # Or just:")
+        rprint("  docker compose up --build")
 
 
 def _print_summary(

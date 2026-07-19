@@ -10,6 +10,19 @@ interface Props {
   dispatch: Dispatch<EditorAction>
 }
 
+function shapeTag(shape: Shape): string {
+  switch (shape.shape_type) {
+    case 'rectangle':
+      return 'rect'
+    case 'polygon':
+      return `poly·${shape.points.length}`
+    case 'linestrip':
+      return `strip·${shape.points.length}`
+    default:
+      return shape.shape_type
+  }
+}
+
 export function ShapeList({ shapes, selected, labels, dispatch }: Props) {
   const colorOf = (label: string) =>
     labels.find((l) => l.name === label)?.color ?? '#4d9fff'
@@ -44,7 +57,7 @@ export function ShapeList({ shapes, selected, labels, dispatch }: Props) {
             />
           </span>
           <span className="dim" style={{ fontSize: 11 }}>
-            {shape.shape_type === 'rectangle' ? 'rect' : `poly·${shape.points.length}`}
+            {shapeTag(shape)}
           </span>
           <button
             className="danger icon-btn"

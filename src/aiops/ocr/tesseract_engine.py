@@ -13,13 +13,26 @@ from aiops.ocr.base import OCRBase, register_engine
 logger = get_logger(__name__)
 
 
+# Tesseract uses ISO-639-2 codes ('eng'), but the OCR facade defaults to
+# ISO-639-1 ('en') — map the common short codes so OCR(engine="tesseract") works.
+_LANG_MAP = {
+    "en": "eng", "de": "deu", "fr": "fra", "es": "spa", "it": "ita",
+    "pt": "por", "nl": "nld", "ru": "rus", "ja": "jpn", "ko": "kor",
+    "zh": "chi_sim", "ar": "ara", "hi": "hin", "tr": "tur", "pl": "pol",
+}
+
+
+def normalize_lang(lang: str) -> str:
+    """Map 2-letter ISO codes to Tesseract's 3-letter codes; pass others through."""
+    return _LANG_MAP.get(lang.lower(), lang)
+
+
 @register_engine("tesseract")
 class TesseractEngine(OCRBase):
     """Tesseract adapter — normalizes output to unified OCRResult format."""
 
     def __init__(self, lang: str = "eng", **kwargs: Any) -> None:
-        # Tesseract uses 3-letter codes like 'eng', not 'en'
-        super().__init__(lang=lang, **kwargs)
+        super().__init__(lang=normalize_lang(lang), **kwargs)
         try:
             import pytesseract  # noqa: F401
         except ImportError:

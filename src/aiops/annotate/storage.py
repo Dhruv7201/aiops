@@ -44,6 +44,23 @@ def _read_json(path: Path, default: dict | None = None) -> dict:
     return json.loads(path.read_text())
 
 
+def _check_stem_collisions(images_dir: Path) -> None:
+    """Reject dirs where two images share a stem (e.g. a.jpg + a.png).
+
+    Annotations are stored as <stem>.json, so such pairs would silently
+    overwrite each other's labels.
+    """
+    stems: dict[str, str] = {}
+    for p in images_dir.iterdir():
+        if p.is_file() and p.suffix.lower() in IMAGE_EXTENSIONS:
+            if p.stem in stems:
+                raise ValueError(
+                    f"Images '{stems[p.stem]}' and '{p.name}' share the same "
+                    "base name; annotations would collide. Rename one of them."
+                )
+            stems[p.stem] = p.name
+
+
 class ProjectStore:
     """File-backed store for users, projects, and annotations."""
 
@@ -82,7 +99,12 @@ class ProjectStore:
             images_dir = entry.get("images_dir", "")
             num_images = num_annotated = 0
             if Path(images_dir).is_dir():
-                images = self.list_images(name)
+                try:
+                    images = self.list_images(name)
+                except Exception:
+                    # One broken project must not take down the whole listing
+                    logger.exception(f"Failed to scan project '{name}' at {images_dir}")
+                    images = []
                 num_images = len(images)
                 num_annotated = sum(1 for i in images if i.annotated)
             summaries.append(
@@ -102,6 +124,7 @@ class ProjectStore:
         registry = self._registry()
         if name in registry:
             raise FileExistsError(f"Project '{name}' already exists")
+        _check_stem_collisions(images_dir)
 
         meta = ProjectMeta(name=name, images_dir=str(images_dir))
         ann_dir = images_dir / ANNOTATIONS_SUBDIR
@@ -115,6 +138,28 @@ class ProjectStore:
         registry[name] = {"images_dir": str(images_dir)}
         _atomic_write_json(self._projects_path, {"projects": registry})
         logger.info(f"Created project '{name}' at {images_dir}")
+        return meta
+
+    def delete_project(self, name: str) -> None:
+        """Unregister a project. Annotations on disk are kept."""
+        registry = self._registry()
+        if name not in registry:
+            raise KeyError(f"Unknown project '{name}'")
+        del registry[name]
+        _atomic_write_json(self._projects_path, {"projects": registry})
+        logger.info(f"Deleted project '{name}' (annotations kept on disk)")
+
+    def rename_project(self, old: str, new: str) -> ProjectMeta:
+        registry = self._registry()
+        if old not in registry:
+            raise KeyError(f"Unknown project '{old}'")
+        if new in registry:
+            raise FileExistsError(f"Project '{new}' already exists")
+        meta = self.load_project(old)
+        registry[new] = registry.pop(old)
+        _atomic_write_json(self._projects_path, {"projects": registry})
+        meta.name = new
+        self.save_project(meta)
         return meta
 
     def images_dir(self, name: str) -> Path:
@@ -162,9 +207,18 @@ class ProjectStore:
 
     def list_images(self, name: str) -> list[ImageInfo]:
         meta = self.load_project(name)
+        cache_path = self._ann_dir(name) / "dims.json"
+        cache = _read_json(cache_path)
+        cache_dirty = False
         infos = []
         for filename in self.list_image_files(name):
-            width, height = self._image_dims(name, filename)
+            try:
+                width, height, hit = self._cached_dims(name, filename, cache)
+                cache_dirty = cache_dirty or not hit
+            except OSError:
+                # Corrupt/truncated file: skip it rather than failing the listing
+                logger.warning(f"Skipping unreadable image: {filename}")
+                continue
             doc_path = self._annotation_path(name, filename)
             num_shapes = 0
             if doc_path.exists():
@@ -179,6 +233,8 @@ class ProjectStore:
                     num_shapes=num_shapes,
                 )
             )
+        if cache_dirty:
+            _atomic_write_json(cache_path, cache)
         return infos
 
     def image_path(self, name: str, filename: str) -> Path:
@@ -187,9 +243,30 @@ class ProjectStore:
             raise FileNotFoundError(f"Image not found: {filename}")
         return self.images_dir(name) / filename
 
-    def _image_dims(self, name: str, filename: str) -> tuple[int, int]:
+    def _cached_dims(
+        self, name: str, filename: str, cache: dict
+    ) -> tuple[int, int, bool]:
+        """(width, height, cache_hit); updates `cache` in place on miss.
+
+        Entries are [w, h, mtime_ns, size] so edited files are re-scanned.
+        """
+        stat = (self.images_dir(name) / filename).stat()
+        entry = cache.get(filename)
+        if entry and entry[2] == stat.st_mtime_ns and entry[3] == stat.st_size:
+            return entry[0], entry[1], True
         with Image.open(self.images_dir(name) / filename) as img:
-            return img.size  # (width, height)
+            width, height = img.size
+        cache[filename] = [width, height, stat.st_mtime_ns, stat.st_size]
+        return width, height, False
+
+    def _image_dims(self, name: str, filename: str) -> tuple[int, int]:
+        """Single-image (width, height) via the dims cache."""
+        cache_path = self._ann_dir(name) / "dims.json"
+        cache = _read_json(cache_path)
+        width, height, hit = self._cached_dims(name, filename, cache)
+        if not hit:
+            _atomic_write_json(cache_path, cache)
+        return width, height
 
     # -- Annotations --
 
@@ -209,4 +286,6 @@ class ProjectStore:
     def save_annotation(self, name: str, filename: str, doc: LabelMeDoc) -> None:
         # Ensure the doc points at the right image regardless of client input
         doc.imagePath = f"../{filename}"
+        # Never persist embedded base64 image data — the image lives next door
+        doc.imageData = None
         _atomic_write_json(self._annotation_path(name, filename), doc.model_dump())

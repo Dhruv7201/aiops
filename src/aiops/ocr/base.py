@@ -7,11 +7,10 @@ from pathlib import Path
 from typing import Any
 
 import cv2
-import numpy as np
 
 from aiops.core.log import get_logger
 from aiops.core.plugin import PluginRegistry
-from aiops.core.types import BBox, ImageArray, OCREngine, OCRResult
+from aiops.core.types import ImageArray, OCRResult
 
 logger = get_logger(__name__)
 

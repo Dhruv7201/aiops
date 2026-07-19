@@ -117,6 +117,47 @@ class TestFullFlow:
 
 
 class TestErrors:
+    def test_delete_and_rename_project(self, client: TestClient, images_dir: Path):
+        client.post("/api/projects", json={"name": "demo", "images_dir": str(images_dir)})
+
+        r = client.patch("/api/projects/demo", json={"name": "renamed"})
+        assert r.status_code == 200
+        assert r.json()["name"] == "renamed"
+        assert client.get("/api/projects/demo").status_code == 404
+
+        assert client.delete("/api/projects/renamed").status_code == 204
+        assert client.get("/api/projects").json() == []
+        assert client.delete("/api/projects/renamed").status_code == 404
+
+    def test_rename_conflict_409(self, client: TestClient, images_dir: Path, tmp_path: Path):
+        other = tmp_path / "other"
+        other.mkdir()
+        cv2.imwrite(str(other / "x.png"), np.zeros((10, 10, 3), dtype=np.uint8))
+        client.post("/api/projects", json={"name": "a", "images_dir": str(images_dir)})
+        client.post("/api/projects", json={"name": "b", "images_dir": str(other)})
+        assert client.patch("/api/projects/a", json={"name": "b"}).status_code == 409
+
+    def test_export_format_yolo(self, client: TestClient, images_dir: Path, tmp_path: Path):
+        client.post("/api/projects", json={"name": "demo", "images_dir": str(images_dir)})
+        doc = {
+            "shapes": [
+                {"label": "cat", "points": [[0, 0], [10, 10]], "shape_type": "rectangle"}
+            ],
+            "imageWidth": 70,
+            "imageHeight": 50,
+        }
+        client.put("/api/projects/demo/annotations/img_0.png", json=doc)
+        r = client.post(
+            "/api/projects/demo/export",
+            json={
+                "output_dir": str(tmp_path / "out"), "format": "yolo",
+                "train_ratio": 1.0, "val_ratio": 0.0, "test_ratio": 0.0,
+            },
+        )
+        assert r.status_code == 200
+        assert (tmp_path / "out" / "dataset.yaml").exists()
+        assert (tmp_path / "out" / "train" / "labels" / "img_0.txt").exists()
+
     def test_unknown_project_404(self, client: TestClient):
         assert client.get("/api/projects/nope").status_code == 404
 

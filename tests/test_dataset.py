@@ -104,7 +104,7 @@ class TestSplitDataset:
         for i in range(10):
             img = np.zeros((10, 10, 3), dtype=np.uint8)
             cv2.imwrite(str(images_dir / f"img_{i}.jpg"), img)
-            (labels_dir / f"img_{i}.txt").write_text(f"0 0.5 0.5 0.1 0.1")
+            (labels_dir / f"img_{i}.txt").write_text("0 0.5 0.5 0.1 0.1")
 
         counts = split_dataset(images_dir, labels_dir, out_dir, train_ratio=0.7, val_ratio=0.2)
 

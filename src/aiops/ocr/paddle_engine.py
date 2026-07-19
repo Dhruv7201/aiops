@@ -38,11 +38,18 @@ class PaddleOCREngine(OCRBase):
     def _create_engine(self, **kwargs: Any):
         from paddleocr import PaddleOCR
 
-        default_kwargs = {
-            "use_angle_cls": True,
-            "lang": self.lang,
-            "show_log": False,
-        }
+        if self._version >= 3:
+            # 3.x removed show_log and renamed use_angle_cls
+            default_kwargs: dict[str, Any] = {
+                "use_textline_orientation": True,
+                "lang": self.lang,
+            }
+        else:
+            default_kwargs = {
+                "use_angle_cls": True,
+                "lang": self.lang,
+                "show_log": False,
+            }
         default_kwargs.update(kwargs)
         return PaddleOCR(**default_kwargs)
 
@@ -64,20 +71,17 @@ class PaddleOCREngine(OCRBase):
         return results
 
     def _parse_v3(self, image: ImageArray) -> list[OCRResult]:
-        result = self._ocr.ocr(image, cls=True)
+        # 3.x: predict() returns one dict-like result per image with parallel
+        # rec_texts / rec_scores / rec_polys lists (the cls kwarg is gone).
+        result = self._ocr.predict(image)
         results: list[OCRResult] = []
-        if not result or not result[0]:
-            return results
-        for line in result[0]:
-            # PaddleOCR 3.x may return a different structure
-            # but commonly still returns [[bbox], (text, score)]
-            if isinstance(line, dict):
-                bbox = line.get("boxes", line.get("bbox", []))
-                text = line.get("text", line.get("rec_text", ""))
-                score = float(line.get("score", line.get("rec_score", 0.0)))
-            else:
-                bbox = line[0]
-                text = line[1][0]
-                score = float(line[1][1])
-            results.append(OCRResult(text=text, score=score, bbox=bbox))
+        for page in result or []:
+            texts = page.get("rec_texts", [])
+            scores = page.get("rec_scores", [])
+            polys = page.get("rec_polys", page.get("dt_polys", []))
+            for i, text in enumerate(texts):
+                score = float(scores[i]) if i < len(scores) else 0.0
+                poly = polys[i] if i < len(polys) else []
+                bbox = [[float(x), float(y)] for x, y in poly]
+                results.append(OCRResult(text=text, score=score, bbox=bbox))
         return results

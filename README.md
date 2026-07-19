@@ -2,6 +2,8 @@
 
 Production-grade ML engineer utility library for Computer Vision, backend systems, and data pipelines.
 
+Docs: [USAGE.md](USAGE.md) (guide) · [COMMANDS.md](COMMANDS.md) (commands & settings reference).
+
 ## Install
 
 ```bash
@@ -37,8 +39,7 @@ uv pip install -e ".[all]"         # Everything
 aiops ocr detect image.png --engine paddle
 aiops yolo predict photo.jpg --model yolov8n.pt --conf 0.5
 aiops db connect "postgresql://user:pass@localhost/mydb"
-aiops generate backend my_api -f fastapi --docker --auth
-aiops generate frontend my_dashboard --api-url http://localhost:8000
+aiops generate fullstack my_app    # interactive wizard: backend + frontend + db
 aiops annotate serve               # web annotation UI on http://<lan-ip>:8765
 ```
 
@@ -56,7 +57,8 @@ aiops annotate start               # dev mode: API + Vite dev server (HMR), both
 - Rectangle + polygon tools, vertex editing, undo/redo, copy/paste (also across images),
   zoom/pan, keyboard shortcuts, autosave
 - Annotations saved as LabelMe-compatible JSON in `<images_dir>/.annotations/`
-- Export annotated images into train/val(/test) splits with configurable ratios
+- Export to LabelMe, YOLO (txt + dataset.yaml), or COCO (RF-DETR layout) with
+  configurable train/val(/test) split ratios
 
 ### Python API
 

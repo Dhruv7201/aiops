@@ -26,6 +26,7 @@ from aiops.annotate.models import (
     ProjectMeta,
     ProjectSummary,
     ReassignRequest,
+    RenameProjectRequest,
     SetLabelsRequest,
 )
 from aiops.annotate.storage import ProjectStore
@@ -91,10 +92,29 @@ def create_app(annotate_dir: Path | None = None) -> FastAPI:
             raise HTTPException(404, str(e))
         except FileExistsError as e:
             raise HTTPException(409, str(e))
+        except ValueError as e:
+            raise HTTPException(400, str(e))
 
     @app.get("/api/projects/{name}")
     async def get_project(name: str) -> ProjectMeta:
         return _project_or_404(name)
+
+    @app.delete("/api/projects/{name}", status_code=204)
+    async def delete_project(name: str) -> None:
+        try:
+            store.delete_project(name)
+        except KeyError:
+            raise HTTPException(404, f"Unknown project '{name}'")
+
+    @app.patch("/api/projects/{name}")
+    async def rename_project(name: str, req: RenameProjectRequest) -> ProjectMeta:
+        try:
+            async with locks[name]:
+                return store.rename_project(name, req.name)
+        except KeyError:
+            raise HTTPException(404, f"Unknown project '{name}'")
+        except FileExistsError as e:
+            raise HTTPException(409, str(e))
 
     @app.put("/api/projects/{name}/labels")
     async def set_labels(name: str, req: SetLabelsRequest) -> ProjectMeta:
@@ -121,10 +141,12 @@ def create_app(annotate_dir: Path | None = None) -> FastAPI:
 
     @app.post("/api/projects/{name}/assign")
     async def assign_images(name: str, req: AssignRequest) -> ProjectMeta:
-        meta = _project_or_404(name)
+        _project_or_404(name)
         if not req.users:
             raise HTTPException(422, "at least one user is required")
         async with locks[name]:
+            # Re-read inside the lock so concurrent assigns don't clobber
+            meta = store.load_project(name)
             assignments = round_robin_assign(
                 store.list_image_files(name),
                 req.users,

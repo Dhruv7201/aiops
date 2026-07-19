@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Dispatch } from 'react'
 import type { Shape, ShapeType } from '../types'
+import { isEditableShape } from '../types'
 import type { EditorAction } from '../state/editorReducer'
 import {
   fitViewport,
@@ -159,6 +160,7 @@ export function AnnotationCanvas({
 
     // Vertex handles of selected shapes take priority
     for (const i of selected) {
+      if (!shapes[i] || !isEditableShape(shapes[i].shape_type)) continue
       const v = hitVertex(x, y, shapes[i], vertexRadius)
       if (v >= 0) {
         dispatch({ type: 'DRAG_START' })
@@ -166,8 +168,9 @@ export function AnnotationCanvas({
         return
       }
     }
-    // Topmost shape under cursor
+    // Topmost editable shape under cursor (imported circle/line/point are read-only)
     for (let i = shapes.length - 1; i >= 0; i--) {
+      if (!isEditableShape(shapes[i].shape_type)) continue
       if (pointInShape(x, y, shapes[i])) {
         const indices = e.shiftKey
           ? selected.includes(i)
@@ -198,8 +201,9 @@ export function AnnotationCanvas({
     if (drag.kind === 'move') {
       const dx = x - drag.lastX
       const dy = y - drag.lastY
-      // Move every selected shape together
+      // Move every selected editable shape together
       for (const i of selected) {
+        if (!shapes[i] || !isEditableShape(shapes[i].shape_type)) continue
         dispatch({ type: 'DRAG_PREVIEW', index: i, shape: translateShape(shapes[i], dx, dy) })
       }
       setDrag({ ...drag, lastX: x, lastY: y })
@@ -254,6 +258,24 @@ export function AnnotationCanvas({
         />
       )
     }
+    if (shape.shape_type === 'circle') {
+      const [[cx, cy], [ex, ey]] = shape.points
+      return <circle key={i} cx={cx} cy={cy} r={Math.hypot(ex - cx, ey - cy)} {...common} />
+    }
+    if (shape.shape_type === 'point') {
+      const [[px, py]] = shape.points
+      return <circle key={i} cx={px} cy={py} r={vr} {...common} fillOpacity={1} />
+    }
+    if (shape.shape_type === 'line' || shape.shape_type === 'linestrip') {
+      return (
+        <polyline
+          key={i}
+          points={shape.points.map((p) => p.join(',')).join(' ')}
+          {...common}
+          fill="none"
+        />
+      )
+    }
     return <polygon key={i} points={shape.points.map((p) => p.join(',')).join(' ')} {...common} />
   }
 
@@ -279,9 +301,9 @@ export function AnnotationCanvas({
         />
         {shapes.map(renderShape)}
 
-        {/* vertex handles on selected shapes */}
+        {/* vertex handles on selected editable shapes */}
         {selected.map((i) =>
-          shapes[i] ? (
+          shapes[i] && isEditableShape(shapes[i].shape_type) ? (
             <g key={`v${i}`}>
               {shapeVertices(shapes[i]).map(([vx, vy], j) => (
                 <circle

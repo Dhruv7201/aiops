@@ -1,6 +1,11 @@
 // Mirrors src/aiops/annotate/models.py
 
-export type ShapeType = 'rectangle' | 'polygon'
+export type ShapeType = 'rectangle' | 'polygon' | 'circle' | 'line' | 'point' | 'linestrip'
+
+/** The editor only creates/edits these; other LabelMe types render read-only. */
+export const isEditableShape = (t: ShapeType) => t === 'rectangle' || t === 'polygon'
+
+export type ExportFormat = 'labelme' | 'yolo' | 'coco'
 
 export interface Shape {
   label: string
@@ -16,7 +21,7 @@ export interface LabelMeDoc {
   flags: Record<string, unknown>
   shapes: Shape[]
   imagePath: string
-  imageData: null
+  imageData: string | null
   imageHeight: number
   imageWidth: number
 }

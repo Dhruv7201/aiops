@@ -182,7 +182,7 @@ class EasyOCRTrainer:
             "python", str(train_script),
             "--train_data", str(train_lmdb),
             "--valid_data", str(val_lmdb),
-            "--saved_model", str(self.output_dir / "models"),
+            "--exp_name", self.output_dir.name,
             "--num_iter", str(epochs * 1000),
             "--batch_size", str(batch_size),
             "--lr", str(learning_rate),
@@ -195,6 +195,7 @@ class EasyOCRTrainer:
             "--Prediction", "CTC",
         ]
 
+        # DTRB's --saved_model is the *pretrained* checkpoint to fine-tune from
         if pretrained:
             cmd.extend(["--saved_model", str(pretrained)])
 

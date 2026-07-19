@@ -200,11 +200,17 @@ export function AnnotationEditor({ project, filename }: Props) {
         case 'D':
           goToImage(imageIndex + 1)
           break
+        default:
+          // 1-9 pick the Nth project label as the current label
+          if (/^[1-9]$/.test(e.key)) {
+            const label = meta?.labels[Number(e.key) - 1]
+            if (label) setCurrentLabel(label.name)
+          }
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [copySelected, paste, save, goToImage, imageIndex])
+  }, [copySelected, paste, save, goToImage, imageIndex, meta])
 
   // -- render --
 
@@ -310,7 +316,7 @@ export function AnnotationEditor({ project, filename }: Props) {
           <div className="dim" style={{ fontSize: 12, marginTop: 'auto' }}>
             <p>
               <span className="kbd">R</span> rect · <span className="kbd">P</span> polygon ·{' '}
-              <span className="kbd">S</span> select
+              <span className="kbd">S</span> select · <span className="kbd">1-9</span> label
             </p>
             <p>
               <span className="kbd">Ctrl+Z</span> undo · <span className="kbd">Ctrl+C/V</span>{' '}

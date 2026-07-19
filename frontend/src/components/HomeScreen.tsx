@@ -11,6 +11,9 @@ export function HomeScreen() {
   const [showNewProject, setShowNewProject] = useState(false)
   const [projName, setProjName] = useState('')
   const [projDir, setProjDir] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
+  const [renameTarget, setRenameTarget] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
   const [error, setError] = useState('')
 
   const refresh = () => {
@@ -43,6 +46,29 @@ export function HomeScreen() {
       setShowNewProject(false)
       setProjName('')
       setProjDir('')
+      setError('')
+      refresh()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  const deleteProject = async (name: string) => {
+    try {
+      await api.deleteProject(name)
+      setConfirmDelete(null)
+      setError('')
+      refresh()
+    } catch (e) {
+      setError((e as Error).message)
+    }
+  }
+
+  const renameProject = async () => {
+    if (!renameTarget) return
+    try {
+      await api.renameProject(renameTarget, renameValue.trim())
+      setRenameTarget(null)
       setError('')
       refresh()
     } catch (e) {
@@ -105,7 +131,28 @@ export function HomeScreen() {
               navigate(`/p/${encodeURIComponent(p.name)}`)
             }}
           >
-            <h3>{p.name}</h3>
+            <div className="row spread">
+              <h3 style={{ margin: 0 }}>{p.name}</h3>
+              <span className="row" onClick={(e) => e.stopPropagation()}>
+                <button
+                  className="icon-btn"
+                  title="Rename project"
+                  onClick={() => {
+                    setRenameTarget(p.name)
+                    setRenameValue(p.name)
+                  }}
+                >
+                  ✎
+                </button>
+                <button
+                  className="danger icon-btn"
+                  title="Remove from list (annotations stay on disk)"
+                  onClick={() => setConfirmDelete(p.name)}
+                >
+                  ✕
+                </button>
+              </span>
+            </div>
             <div className="dim" style={{ fontSize: 12, wordBreak: 'break-all' }}>{p.images_dir}</div>
             <div className="row mt">
               <span className="dot done" />
@@ -113,9 +160,46 @@ export function HomeScreen() {
                 {p.num_annotated} / {p.num_images} annotated
               </span>
             </div>
+            {confirmDelete === p.name && (
+              <div className="row mt" onClick={(e) => e.stopPropagation()}>
+                <span className="dim">Remove? Annotations stay on disk.</span>
+                <button className="danger" onClick={() => deleteProject(p.name)}>
+                  Remove
+                </button>
+                <button onClick={() => setConfirmDelete(null)}>Cancel</button>
+              </div>
+            )}
           </div>
         ))}
       </div>
+
+      {renameTarget && (
+        <div className="overlay" onClick={() => setRenameTarget(null)}>
+          <div className="dialog" onClick={(e) => e.stopPropagation()}>
+            <h2>Rename project</h2>
+            <label>
+              New name for <b>{renameTarget}</b>
+              <input
+                style={{ width: '100%', marginTop: 4 }}
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && renameProject()}
+              />
+            </label>
+            {error && <p className="error">{error}</p>}
+            <div className="row" style={{ justifyContent: 'flex-end' }}>
+              <button onClick={() => setRenameTarget(null)}>Cancel</button>
+              <button
+                className="primary"
+                onClick={renameProject}
+                disabled={!renameValue.trim() || renameValue.trim() === renameTarget}
+              >
+                Rename
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showNewProject && (
         <div className="overlay" onClick={() => setShowNewProject(false)}>

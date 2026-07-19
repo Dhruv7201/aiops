@@ -7,7 +7,6 @@ import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import cv2
 import yaml
 
 from aiops.core.log import get_logger

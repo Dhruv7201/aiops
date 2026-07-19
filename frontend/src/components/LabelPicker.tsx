@@ -11,9 +11,9 @@ export function LabelPicker({ value, labels, onChange }: Props) {
   return (
     <select value={value} onChange={(e) => onChange(e.target.value)} style={{ width: '100%' }}>
       {!known && <option value={value}>{value}</option>}
-      {labels.map((l) => (
+      {labels.map((l, i) => (
         <option key={l.name} value={l.name}>
-          {l.name}
+          {i < 9 ? `${i + 1} · ${l.name}` : l.name}
         </option>
       ))}
     </select>
