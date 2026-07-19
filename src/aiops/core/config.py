@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     yolo_model: str = "yolov8n.pt"
     yolo_device: str = "cpu"
 
+    # Annotation server
+    annotate_dir: Path = Path("data/annotate")
+    annotate_host: str = "0.0.0.0"
+    annotate_port: int = 8765
+
 
 @lru_cache
 def get_settings(**overrides: Any) -> Settings:

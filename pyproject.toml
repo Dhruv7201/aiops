@@ -27,10 +27,11 @@ mysql = ["aiomysql>=0.2"]
 mssql = ["pymssql>=2.2"]
 mongo = ["motor>=3.3"]
 redis = ["redis[hiredis]>=5.0"]
+annotate = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
 all-ocr = ["aiops[paddle,easyocr,tesseract]"]
 all-db = ["aiops[postgres,mysql,mssql,mongo,redis]"]
-all = ["aiops[all-ocr,yolo,all-db]"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4"]
+all = ["aiops[all-ocr,yolo,all-db,annotate]"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.4", "httpx>=0.27"]
 
 [project.scripts]
 aiops = "aiops.cli:app"
@@ -41,6 +42,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/aiops"]
+artifacts = ["src/aiops/annotate/static"]
 
 [tool.ruff]
 line-length = 100

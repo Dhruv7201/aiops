@@ -1,4 +1,5 @@
-.PHONY: install test build publish clean lint format check help
+.PHONY: install test build publish clean lint format check help \
+	frontend-install frontend frontend-dev annotate-serve annotate-start
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
@@ -25,7 +26,22 @@ format: ## Format code
 
 check: lint test ## Run linter + tests
 
-build: ## Build distribution packages
+frontend-install: ## Install annotation frontend deps
+	cd frontend && npm ci
+
+frontend: frontend-install ## Build annotation frontend into src/aiops/annotate/static
+	cd frontend && npm run build
+
+frontend-dev: ## Run vite dev server (proxies /api to :8765)
+	cd frontend && npm run dev
+
+annotate-serve: ## Run the annotation server
+	uv run aiops annotate serve
+
+annotate-start: ## Run annotation backend + vite dev frontend on the network
+	uv run aiops annotate start
+
+build: frontend ## Build distribution packages
 	uv build
 
 publish: build ## Publish to PyPI

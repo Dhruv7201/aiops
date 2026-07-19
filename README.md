@@ -25,6 +25,7 @@ uv pip install -e ".[redis]"       # Redis
 uv pip install -e ".[mongo]"       # MongoDB
 uv pip install -e ".[mysql]"       # MySQL
 uv pip install -e ".[mssql]"       # MSSQL
+uv pip install -e ".[annotate]"    # Web annotation tool (FastAPI + uvicorn)
 uv pip install -e ".[all]"         # Everything
 ```
 
@@ -38,7 +39,24 @@ aiops yolo predict photo.jpg --model yolov8n.pt --conf 0.5
 aiops db connect "postgresql://user:pass@localhost/mydb"
 aiops generate backend my_api -f fastapi --docker --auth
 aiops generate frontend my_dashboard --api-url http://localhost:8000
+aiops annotate serve               # web annotation UI on http://<lan-ip>:8765
 ```
+
+### Annotation tool
+
+LabelMe-style web annotation UI, shareable across the LAN (`make frontend` once to build the UI):
+
+```bash
+aiops annotate serve --port 8765   # serve built UI + API on one port
+aiops annotate start               # dev mode: API + Vite dev server (HMR), both on 0.0.0.0
+```
+
+- Home screen with user creation/selection and projects (a project = a directory of images)
+- Divide images among users (round-robin) with per-user queues and manual reassignment
+- Rectangle + polygon tools, vertex editing, undo/redo, copy/paste (also across images),
+  zoom/pan, keyboard shortcuts, autosave
+- Annotations saved as LabelMe-compatible JSON in `<images_dir>/.annotations/`
+- Export annotated images into train/val(/test) splits with configurable ratios
 
 ### Python API
 
@@ -94,6 +112,7 @@ src/aiops/
 ├── ocr/            # Unified OCR (PaddleOCR, EasyOCR, Tesseract)
 │   └── training/   # Training pipelines per engine
 ├── vision/         # YOLO, ROI selector, preprocessing, dataset tools
+├── annotate/       # Web-based multi-user annotation tool (LabelMe-style)
 ├── db/             # Async database connectors (Postgres, MySQL, MSSQL, Mongo, Redis)
 ├── generators/     # Backend/frontend project scaffolding
 └── cli/            # Typer CLI commands

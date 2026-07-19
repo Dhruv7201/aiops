@@ -6,6 +6,7 @@ from aiops.cli.ocr_cmd import app as ocr_app
 from aiops.cli.yolo_cmd import app as yolo_app
 from aiops.cli.db_cmd import app as db_app
 from aiops.cli.generate_cmd import app as generate_app
+from aiops.cli.annotate_cmd import app as annotate_app
 
 app = typer.Typer(
     name="aiops",
@@ -18,6 +19,7 @@ app.add_typer(ocr_app, name="ocr", help="OCR detection and training")
 app.add_typer(yolo_app, name="yolo", help="YOLO detection and training")
 app.add_typer(db_app, name="db", help="Database operations")
 app.add_typer(generate_app, name="generate", help="Generate fullstack projects")
+app.add_typer(annotate_app, name="annotate", help="Web-based image annotation")
 
 
 @app.command()
